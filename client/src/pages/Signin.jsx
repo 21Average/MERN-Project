@@ -78,7 +78,7 @@ export default function Signin() {
       <div className='flex gap-2 mt-5'>
         <p>Don't have an account?</p>
         <Link to={"/sign-up"}>
-          <span className='text-blue-700 hover:underline'>Sign In</span>
+          <span className='text-blue-700 hover:underline'>Sign Up</span>
         </Link>
       </div>
       {error && <p className='text-red-500 mt-5'>{error}</p>}
