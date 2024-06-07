@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useRef } from 'react'
 import {
   getDownloadURL,
@@ -10,26 +10,29 @@ import {
 
 import { app } from "../firebase.js";
 
+import { updateUserStart, updateUserFailure, updateUserSuccess } from '../redux/user/userSlice.js';
+
 export default function Profile() {
-  const {currentUser} = useSelector(state => (state.user))
+  const {currentUser, loading, error} = useSelector(state => (state.user))
   const fileRef = useRef(null)
   const [file, setFile] = useState(undefined);
   const [filePerc, setFilePerc] = useState(0);
   const [fileUploadError, setFileUploadError] = useState(false);
   const [formData, setFormData] = useState({});
+  const dispatch = useDispatch();
 
   useEffect(() =>{
     if(file) {
-      handleImagUpload(file);
+      handleFileUpload(file);
     }
   }, [file])
 
-  const handleImagUpload = (img) => {
+  const handleFileUpload = (file) => {
     const storage = getStorage(app);
     const fileName = new Date().getTime() + file.name;
     const fileNamePath = 'images/' + fileName
     const storageRef = ref(storage,fileNamePath);
-    const uploadTask = uploadBytesResumable(storageRef, img);
+    const uploadTask = uploadBytesResumable(storageRef, file);
 
     uploadTask.on('state_changed',
       (snapshot) => {
@@ -68,20 +71,48 @@ export default function Profile() {
       () => {
         // Upload completed successfully, now we can get the download URL
         getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          setFormData({...formData, avatar: downloadURL})
+          setFormData({ ...formData, avatar: downloadURL })
         });
         
       })
 
   }
+  const HandleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.id] : e.target.value
+    })
+  }
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      dispatch(updateUserStart());
+      const res = await fetch(`/api/user/update/${currentUser._id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (data.success === false) {
+        dispatch(updateUserFailure(data.message));
+        return;
+      }
+      dispatch(updateUserSuccess(data));
+
+    } catch (error) {
+      dispatch(updateUserFailure(data.message))
+    }
+  }
   return (
     <div className='p-3 max-w-lg mx-auto'>
-      <form className='flex flex-col gap-4'>
+      <form className='flex flex-col gap-4' onSubmit={handleSubmit}>
         <input 
           onChange={(e) => setFile(e.target.files[0])}
           type='file' 
-          ref={fileRef} 
+          ref={fileRef}
           hidden accept='image/*'>
         </input>
           <img 
@@ -105,24 +136,30 @@ export default function Profile() {
             type='text'
             placeholder= 'username'
             id='username'
-            className='border p-3 rounded-lg' >
+            defaultValue={currentUser.username}
+            className='border p-3 rounded-lg' 
+            onChange = {HandleChange}>
           </input>
           <input 
             type='text'
             placeholder='email'
             id='email'
-            className='border p-3 rounded-lg' >
+            defaultValue={currentUser.email}
+            className='border p-3 rounded-lg' 
+            onChange = {HandleChange}>
           </input>
           <input 
             type='password' 
             placeholder= 'password'
             id='password'
-            className='border p-3 rounded-lg' >
+            className='border p-3 rounded-lg' 
+            onChange = {HandleChange}>
+            
           </input>
-          <button
+          <button disabled={loading}
             className='bg-slate-700 text-white p-3 rounded-lg uppercase 
             hover:opacity-90 disabled:opacity-75'>
-              Update
+              {loading ? 'Loading...': 'Update'}
           </button>
       </form>
 
@@ -130,7 +167,7 @@ export default function Profile() {
             <span className='text-red-700 cursor-pointer'>Delete Account</span>
             <span className='text-blue-700 cursor-pointer'>Sign Out</span>
         </div>
-
+        <p className='text-red-700 mt-5'>{error ? error : ''}</p>
     </div>
   )
 }
