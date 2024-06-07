@@ -7,10 +7,13 @@ import {
   ref,
   uploadBytesResumable,
 } from 'firebase/storage';
-
+import { useNavigate } from 'react-router-dom';
 import { app } from "../firebase.js";
 
-import { updateUserStart, updateUserFailure, updateUserSuccess } from '../redux/user/userSlice.js';
+import { updateUserStart, updateUserFailure, updateUserSuccess, 
+        deleteUserFailure, deleteUserSuccess, deleteUserStart,
+        signOutUserFailure, signOutUserStart, signOutUserSuccess} 
+from '../redux/user/userSlice.js';
 
 export default function Profile() {
   const {currentUser, loading, error} = useSelector(state => (state.user))
@@ -20,6 +23,8 @@ export default function Profile() {
   const [fileUploadError, setFileUploadError] = useState(false);
   const [formData, setFormData] = useState({});
   const dispatch = useDispatch();
+  const [updateSuccess, setUpdateSuccess] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() =>{
     if(file) {
@@ -101,9 +106,42 @@ export default function Profile() {
         return;
       }
       dispatch(updateUserSuccess(data));
-
+      setUpdateSuccess(true);
     } catch (error) {
       dispatch(updateUserFailure(data.message))
+    }
+  }
+  const handleDelete = async (e) => {
+    try {
+      dispatch(deleteUserStart());
+      const res = await fetch(`/api/user/delete/${currentUser._id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success === false) {
+        dispatch(deleteUserFailure(data.message));
+        return;
+      }
+      dispatch(deleteUserSuccess(data));
+      navigate('/sign-in');
+    } catch (error) {
+      dispatch(deleteUserFailure(data.message))
+    }
+  }
+
+  const handleSignout = async (e) => {
+    try {
+      dispatch(signOutUserStart());
+      const res = await fetch('/api/auth/signout');
+      const data = await res.json();
+      if (data.success === false) {
+        dispatch(signOutUserFailure(data.message));
+        return;
+      }
+      dispatch(signOutUserSuccess(data));
+      navigate('/sign-in');
+    } catch (error) {
+      dispatch(signOutUserFailure(data.message));
     }
   }
   return (
@@ -164,10 +202,11 @@ export default function Profile() {
       </form>
 
         <div className='flex gap-2 mt-5 justify-between'>
-            <span className='text-red-700 cursor-pointer'>Delete Account</span>
-            <span className='text-blue-700 cursor-pointer'>Sign Out</span>
+            <span onClick={handleDelete} className='text-red-700 cursor-pointer'>Delete Account</span>
+            <span onClick={handleSignout} className='text-blue-700 cursor-pointer'>Sign Out</span>
         </div>
-        <p className='text-red-700 mt-5'>{error ? error : ''}</p>
+        {/* <p className='text-red-700 mt-5'>{error ? error : ''}</p> */}
+        <p className='text-green-700 mt-5'>{updateSuccess ? 'User Update Successfully' : ''}</p>
     </div>
   )
 }
